@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "628613466295",
+    "project_id": "albuhaira-d7952",
+    "storage_bucket": "albuhaira-d7952.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:628613466295:android:0a074315dac4bfd6766532",
+        "android_client_info": {
+          "package_name": "com.albuhaira.alarabia"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDr7cIKmMA-xxU4WiZVUOCVxFDzVumbYFc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

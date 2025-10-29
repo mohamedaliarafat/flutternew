@@ -1,0 +1,62 @@
+class PaymentModel {
+  final String? id;
+  final String? userId;
+  final String? userName;
+  final String? orderId;
+  final double totalAmount;
+  final String currency;
+  final String bank;
+  final String iban;
+  final String? receiptFile;
+  final String status;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  PaymentModel({
+    this.id,
+    this.userId,
+    this.userName,
+    this.orderId,
+    required this.totalAmount,
+    this.currency = "SAR",
+    required this.bank,
+    required this.iban,
+    this.receiptFile,
+    this.status = "Pending",
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  /// 🧩 من JSON إلى Object
+  factory PaymentModel.fromJson(Map<String, dynamic> json) {
+    return PaymentModel(
+      id: json['_id'],
+      userId: json['userId'],
+      userName: json['userName'],
+      orderId: json['orderId'],
+      totalAmount: (json['totalAmount'] ?? 0).toDouble(),
+      currency: json['currency'] ?? 'SAR',
+      bank: json['bank'] ?? '',
+      iban: json['iban'] ?? '',
+      receiptFile: json['receiptFile'],
+      status: json['status'] ?? 'Pending',
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+    );
+  }
+
+  /// 🔁 من Object إلى JSON (لإرسالها إلى السيرفر)
+  Map<String, dynamic> toJson() {
+    return {
+      'userId': userId,
+      'userName': userName,
+      'orderId': orderId,
+      'totalAmount': totalAmount,
+      'currency': currency,
+      'bank': bank,
+      'iban': iban,
+      'receiptFile': receiptFile,
+      'status': status,
+    };
+  }
+}
