@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:foodly/constants/constants.dart';
 import 'package:foodly/controllers/login_phone_controller.dart';
-import 'package:foodly/views/entrypoint.dart';
-import 'package:get/get.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -15,53 +13,36 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final TextEditingController _otpController = TextEditingController();
+  final AuthController _authController = AuthController();
+
   bool _isLoading = false;
   int _resendSeconds = 60;
 
-  final AuthController _authController = Get.put(AuthController());
-
   void _verifyOtp() async {
-    String enteredOtp = _otpController.text;
+    String enteredOtp = _otpController.text.trim();
     if (enteredOtp.length < 6) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // استدعاء الكنترولر للتحقق من OTP وتسجيل الدخول + فتح الصفحة الرئيسية
       await _authController.verifyOtpAndNavigate(widget.phoneNumber, enteredOtp);
-
-      setState(() {
-        _isLoading = false;
-      });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      Get.snackbar(
-        "خطأ",
-        "حدث خطأ: ${e.toString()}",
-        colorText: Colors.white,
-        backgroundColor: kRed,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ: ${e.toString()}')),
       );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   void _resendCode() async {
     if (_resendSeconds == 0) {
-      setState(() {
-        _resendSeconds = 60;
-      });
-
+      setState(() => _resendSeconds = 60);
       try {
         await _authController.requestOtp(widget.phoneNumber);
       } catch (e) {
-        Get.snackbar(
-          "خطأ",
-          "فشل في إعادة إرسال الرمز: ${e.toString()}",
-          colorText: Colors.white,
-          backgroundColor: kRed,
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في إعادة الإرسال: ${e.toString()}')),
         );
       }
     }
@@ -73,6 +54,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
+          // الخلفية الزرقاء
           Container(
             height: MediaQuery.of(context).size.height * 0.4,
             decoration: const BoxDecoration(
@@ -89,12 +71,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           ),
           Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  const SizedBox(height: 50),
+                children: [
+                  // شعار التطبيق في منتصف المنطقة الزرقاء
                   Container(
+                    margin: const EdgeInsets.only(top: 40),
                     width: 120,
                     height: 120,
                     padding: const EdgeInsets.all(10),
@@ -109,23 +91,32 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.lock_open_rounded, size: 60, color: kBlueDark),
+                    child: Image.network(
+                      'https://d.top4top.io/p_3588wn4ke1.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
+                  // كارد OTP
                   Card(
                     elevation: 10,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
+                        children: [
                           const Text(
                             'رمز التحقق',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: kBlueDark),
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: kBlueDark,
+                            ),
                           ),
                           const SizedBox(height: 15),
                           Text(
@@ -139,7 +130,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             keyboardType: TextInputType.number,
                             maxLength: 6,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 24, letterSpacing: 15.0, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              letterSpacing: 15.0,
+                              fontWeight: FontWeight.bold,
+                            ),
                             decoration: InputDecoration(
                               counterText: "",
                               hintText: '• • • • • •',
@@ -182,7 +177,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                     )
                                   : const Text(
                                       'تأكيد والدخول',
-                                      style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                             ),
                           ),
@@ -197,9 +196,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
+                            onPressed: () => Navigator.pop(context),
                             child: const Text(
                               'تغيير رقم الجوال',
                               style: TextStyle(color: Colors.blueGrey),
@@ -209,6 +206,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),

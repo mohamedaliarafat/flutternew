@@ -20,97 +20,116 @@ class _PhoneVerificationPageState extends State<PhoneVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => controller.isLoading.value == false
-          ? 
-          
-          
-          
-          PhoneVerification(
-              isFirstPage: false,
-              enableLogo: false,
-              themeColor: kBlueDark,
-              backgroundColor: kLightWhite,
-              initialPageText: "Verify Phone Al-Buhaira",
-              initialPageTextStyle: appStyle(20, kBlueDark, FontWeight.bold),
-              textColor: kDark,
-              onSend: (String phoneNumber) async {
-                controller.setPhoneNumber = phoneNumber;
+    return Obx(() {
+      if (controller.isLoading.value) {
+        return Container(
+          color: kLightWhite,
+          width: width,
+          height: hieght,
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
 
-                // تأكد من صيغة رقم الهاتف
-                String formattedNumber = phoneNumber.startsWith('+')
-                    ? phoneNumber
-                    : '+966$phoneNumber';
+      return PhoneVerification(
+        isFirstPage: false,
+        enableLogo: false,
+        themeColor: kBlueDark,
+        backgroundColor: kLightWhite,
+        initialPageText: "Verify Phone Al-Buhaira",
+        initialPageTextStyle: appStyle(20, kBlueDark, FontWeight.bold),
+        textColor: kDark,
+        onSend: (String phoneNumber) async {
+          controller.setPhoneNumber = phoneNumber;
 
-                await _verifyPhoneNumber(formattedNumber);
-              },
-              onVerification: (String smsCode) async {
-                await _submitVerificationCode(smsCode);
-              },
-            )
-          : Container(
-              color: kLightWhite,
-              width: width,
-              height: hieght,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-    );
+          String formattedNumber = phoneNumber.startsWith('+')
+              ? phoneNumber
+              : '+966$phoneNumber';
+
+          await _sendVerificationCode(formattedNumber);
+        },
+        onVerification: (String smsCode) async {
+          await _submitVerificationCode(smsCode);
+        },
+      );
+    });
   }
 
-  /// إرسال رمز SMS
-  Future<void> _verifyPhoneNumber(String phoneNumber) async {
-    controller.isLoading.value = true;
+  /// إرسال رمز التحقق
+  Future<void> _sendVerificationCode(String phoneNumber) async {
+    try {
+      controller.isLoading.value = true;
 
-    await _verificationService.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      codeSentCallback: (String verificationId, int? resendToken) {
-        setState(() {
+      await _verificationService.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        codeSentCallback: (String verificationId, int? resendToken) {
           _verificationId = verificationId;
-        });
-        Get.snackbar("Info", "رمز التحقق تم إرساله إلى هاتفك",
-        backgroundColor: kBlueDark,
-        icon: Icon(Icons.message_outlined),
-        colorText: kLightWhite
-        );
-      },
-    );
 
-    controller.isLoading.value = false;
+          Get.snackbar(
+            "Info",
+            "رمز التحقق تم إرساله إلى هاتفك",
+            backgroundColor: kBlueDark,
+            colorText: kLightWhite,
+            icon: const Icon(Icons.message_outlined, color: Colors.white),
+          );
+        },
+      );
+    } catch (e) {
+      Get.snackbar(
+        "Error",
+        "حدث خطأ أثناء إرسال الرمز: $e",
+        backgroundColor: kRed,
+        colorText: Colors.white,
+        icon: const Icon(Icons.error_outline, color: Colors.white),
+      );
+    } finally {
+      controller.isLoading.value = false;
+    }
   }
 
   /// التحقق من كود SMS
   Future<void> _submitVerificationCode(String smsCode) async {
     if (_verificationId.isEmpty || smsCode.isEmpty) {
-      Get.snackbar("Error", "رمز التحقق غير صالح",
-      backgroundColor: kBlueDark,
-      colorText: kLightWhite,
-      icon: Icon(Icons.error_outline_outlined,
-      color: Colors.red,
-      )
+      Get.snackbar(
+        "Error",
+        "رمز التحقق غير صالح",
+        backgroundColor: kRed,
+        colorText: Colors.white,
+        icon: const Icon(Icons.error_outline, color: Colors.white),
       );
       return;
     }
 
-    controller.isLoading.value = true;
+    try {
+      controller.isLoading.value = true;
 
-    await _verificationService.verifySmsCode(
-      verificationId: _verificationId,
-      smsCode: smsCode,
-    );
-
-    controller.isLoading.value = false;
-
-    if (controller.isVerified.value) {
-      Get.snackbar("Success", "تم التحقق من الهاتف بنجاح!",
-      backgroundColor: kBlueDark,
-      colorText: kLightWhite,
-      icon: Icon(Icons.check_circle_outline,
-      color: Colors.green,
-      )
+      await _verificationService.verifySmsCode(
+        verificationId: _verificationId,
+        smsCode: smsCode,
       );
-      // هنا يمكنك الانتقال للشاشة التالية
+
+      if (controller.isVerified.value) {
+        Get.snackbar(
+          "Success",
+          "تم التحقق من الهاتف بنجاح!",
+          backgroundColor: kBlueDark,
+          colorText: kLightWhite,
+          icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+        );
+
+        // هنا يمكن الانتقال للشاشة التالية بعد التحقق
+      }
+    } catch (e) {
+      Get.snackbar(
+        "Error",
+        "فشل التحقق: $e",
+        backgroundColor: kRed,
+        colorText: Colors.white,
+        icon: const Icon(Icons.error_outline, color: Colors.white),
+      );
+    } finally {
+      controller.isLoading.value = false;
     }
   }
 }

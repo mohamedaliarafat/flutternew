@@ -120,4 +120,6 @@ LoginResponse? getUserInfo() {
   
 }
 
+  loginResponseFromJson(String body) {}
+
 }
