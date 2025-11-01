@@ -11,35 +11,41 @@ import 'package:foodly/models/api_error.dart';
 class CartController extends GetxController {
   final box = GetStorage();
 
-  /// حالة التحميل
-  RxBool _isLoading = false.obs;
+  // حالة التحميل
+  final RxBool _isLoading = false.obs;
   bool get isLoading => _isLoading.value;
   set setLoading(bool value) => _isLoading.value = value;
 
-  /// قائمة السلة
-  RxList<CartResponse> cartItems = <CartResponse>[].obs;
+  // السلة الحالية
+  Rx<CartResponse?> cart = Rx<CartResponse?>(null);
 
   /// 🛒 إضافة منتج للسلة
-  Future<void> addToCart(CartRequest cart) async {
+  Future<void> addToCart(CartRequest cartRequest) async {
     setLoading = true;
     try {
-      final token = box.read<String>("token");
+      final token = box.read("token");
       if (token == null || token.isEmpty) {
         throw "الرجاء تسجيل الدخول لإضافة منتجات إلى السلة";
       }
 
       final url = Uri.parse("$appBaseUrl/api/cart");
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
 
-      final body = jsonEncode(cart.toJson());
-      final response = await http.post(url, headers: headers, body: body);
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(cartRequest.toJson()),
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        Get.snackbar("تمت الإضافة للسلة", "تمت إضافة المنتج بنجاح",
-            colorText: Colors.white, backgroundColor: kBlueDark);
+        Get.snackbar(
+          "تمت الإضافة ✅",
+          "تمت إضافة المنتج إلى السلة بنجاح",
+          colorText: Colors.white,
+          backgroundColor: kBlueDark,
+        );
         await fetchCart();
       } else {
         final error = apiErrorFromJson(response.body);
@@ -55,54 +61,54 @@ class CartController extends GetxController {
   }
 
   /// ❌ حذف منتج من السلة
-  Future<void> removeFromCart(String productId, Function() param1) async {
-    setLoading = true;
+  Future<void> removeFromCart(String cartItemId, Function() param1) async {
     try {
-      final token = box.read<String>("token");
+      final token = box.read('token');
       if (token == null || token.isEmpty) {
-        throw "الرجاء تسجيل الدخول لإدارة السلة";
+        throw "الرجاء تسجيل الدخول أولاً";
       }
 
-      final url = Uri.parse("$appBaseUrl/api/cart/$productId");
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
+      final url = Uri.parse("$appBaseUrl/api/cart/$cartItemId");
 
-      final response = await http.delete(url, headers: headers);
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
       if (response.statusCode == 200) {
-        Get.snackbar("تم الحذف", "تمت إزالة المنتج من السلة 🛒",
-            colorText: Colors.white, backgroundColor: kBlueDark);
         await fetchCart();
+        Get.snackbar("تم", "تم حذف المنتج من السلة بنجاح");
       } else {
-        final error = apiErrorFromJson(response.body);
-        throw error.message;
+        Get.snackbar("خطأ", "تعذر حذف المنتج من السلة");
       }
     } catch (e) {
+      Get.snackbar("خطأ", "حدث خطأ أثناء الاتصال بالخادم");
       debugPrint("❌ removeFromCart Error: $e");
-      Get.snackbar("خطأ", e.toString(),
-          colorText: Colors.white, backgroundColor: Colors.red);
-    } finally {
-      setLoading = false;
     }
   }
 
-  /// تحديث كمية المنتج
-  Future<void> updateQuantity(String cartId, int quantity) async {
+  /// 🔄 تحديث كمية المنتج في السلة
+  Future<void> updateQuantity(String cartItemId, int quantity) async {
     setLoading = true;
     try {
-      final token = box.read<String>("token");
-      if (token == null || token.isEmpty) return;
+      final token = box.read("token");
+      if (token == null || token.isEmpty) {
+        throw "الرجاء تسجيل الدخول لتحديث الكمية";
+      }
 
-      final url = Uri.parse("$appBaseUrl/api/cart/$cartId");
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-      final body = jsonEncode({'quantity': quantity});
+      final url = Uri.parse("$appBaseUrl/api/cart/item/$cartItemId");
 
-      final response = await http.put(url, headers: headers, body: body);
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'quantity': quantity}),
+      );
 
       if (response.statusCode == 200) {
         await fetchCart();
@@ -119,37 +125,48 @@ class CartController extends GetxController {
     }
   }
 
-  /// جلب بيانات السلة من السيرفر
+  /// 📦 جلب بيانات السلة من السيرفر
   Future<void> fetchCart() async {
     setLoading = true;
     try {
-      final token = box.read<String>("token");
+      final token = box.read("token");
       if (token == null || token.isEmpty) {
-        cartItems.clear();
-        return;
+        cart.value = null;
+        throw "الرجاء تسجيل الدخول أولاً";
       }
 
       final url = Uri.parse("$appBaseUrl/api/cart");
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
 
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
       if (response.statusCode == 200) {
-        final carts = cartResponseFromJson(response.body);
-        cartItems.assignAll(carts);
+        final fetchedCart = cartResponseFromJson(response.body);
+        cart.value = fetchedCart;
       } else {
         final error = apiErrorFromJson(response.body);
         throw error.message;
       }
     } catch (e) {
       debugPrint("❌ fetchCart Error: $e");
-      Get.snackbar("خطأ", e.toString(),
+      Get.snackbar("خطأ أثناء تحميل السلة", e.toString(),
           colorText: Colors.white, backgroundColor: Colors.red);
     } finally {
       setLoading = false;
     }
   }
+
+  /// 🧹 مسح السلة عند تسجيل الخروج
+  void clearCart() {
+    cart.value = null;
+  }
+}
+
+extension on Rx<CartResponse?> {
+  void removeWhere(bool Function(dynamic item) param0) {}
 }

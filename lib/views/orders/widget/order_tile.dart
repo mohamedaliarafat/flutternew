@@ -146,7 +146,7 @@ class OrderTile extends StatelessWidget {
                 productId: food.id,
                 additives: [],
                 quantity: 1,
-                totalPrice: food.price,
+                totalPrice: food.price, 
               );
     
               print("🟢 Adding to cart: ${data.toJson()}");

@@ -5,7 +5,7 @@ import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:foodly/common/app_style.dart';
 import 'package:foodly/common/reusable_text.dart';
 import 'package:foodly/constants/constants.dart';
-import 'package:foodly/views/auth/login_page.dart';
+import 'package:foodly/views/auth/PhoneInputScreen.dart';
 import 'package:get/get.dart';
 
 class ProfileAppBar extends StatelessWidget {
@@ -18,7 +18,7 @@ class ProfileAppBar extends StatelessWidget {
       elevation: 0,
       leading: GestureDetector(
         onTap: () {
-          Get.to(() => LoginPage()); 
+          Get.to(() => PhoneInputScreen()); 
         },
         child:  Icon(AntDesign.logout, size: 18.h,),
       ),

@@ -25,7 +25,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authController.verifyOtpAndNavigate(widget.phoneNumber, enteredOtp);
+      await _authController.verifyOtpAndLogin(widget.phoneNumber, enteredOtp);
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('حدث خطأ: ${e.toString()}')),

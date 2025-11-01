@@ -1,134 +1,255 @@
 import 'dart:convert';
 
-List<CartResponse> cartResponseFromJson(String str) =>
-    List<CartResponse>.from(json.decode(str).map((x) => CartResponse.fromJson(x)));
+/// ✅ تحويل JSON إلى كائن CartResponse كامل
+CartResponse cartResponseFromJson(String str) =>
+    CartResponse.fromJson(json.decode(str));
 
-String cartResponseToJson(List<CartResponse> data) =>
-    json.encode(List<dynamic>.from(data.map((x) => x.toJson())));
+/// ✅ تحويل كائن CartResponse إلى JSON
+String cartResponseToJson(CartResponse data) =>
+    json.encode(data.toJson());
 
+/// 🧾 نموذج الاستجابة الكاملة من السيرفر
 class CartResponse {
-  final String id;
-  final String userId;
-  final ProductId productId;
-  final List<String> additives;
-  final double totalPrice;
-  final int quantity;
+  final bool success;
+  final String message;
+  final CartData? data;
 
   CartResponse({
-    required this.id,
-    required this.userId,
-    required this.productId,
-    required this.additives,
-    required this.totalPrice,
-    required this.quantity,
+    required this.success,
+    required this.message,
+    this.data,
   });
 
   factory CartResponse.fromJson(Map<String, dynamic> json) => CartResponse(
+        success: json["success"] ?? false,
+        message: json["message"] ?? '',
+        data: json["data"] != null ? CartData.fromJson(json["data"]) : null,
+      );
+
+  Map<String, dynamic> toJson() => {
+        "success": success,
+        "message": message,
+        "data": data?.toJson(),
+      };
+}
+
+/// 🛒 كائن بيانات السلة الفعلية
+class CartData {
+  final String id;
+  final UserId user;
+  final List<CartItem> items;
+  final double totalPrice;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  CartData({
+    required this.id,
+    required this.user,
+    required this.items,
+    required this.totalPrice,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory CartData.fromJson(Map<String, dynamic> json) => CartData(
         id: json["_id"] ?? '',
-        userId: json["userId"] ?? '',
-        productId: json["productId"] != null
-            ? ProductId.fromJson(json["productId"])
-            : ProductId.empty(),
-        additives: json["additives"] != null
-            ? List<String>.from(json["additives"].map((x) => x.toString()))
+        user: json["user"] != null
+            ? UserId.fromJson(json["user"])
+            : UserId.empty(),
+        items: json["items"] != null
+            ? List<CartItem>.from(
+                json["items"].map((x) => CartItem.fromJson(x)))
             : [],
-        totalPrice: json["totalPrice"] != null
-            ? (json["totalPrice"] as num).toDouble()
-            : 0.0,
-        quantity: json["quantity"] ?? 0,
+        totalPrice: (json["totalPrice"] ?? 0).toDouble(),
+        createdAt: json["createdAt"] != null
+            ? DateTime.tryParse(json["createdAt"])
+            : null,
+        updatedAt: json["updatedAt"] != null
+            ? DateTime.tryParse(json["updatedAt"])
+            : null,
       );
 
   Map<String, dynamic> toJson() => {
         "_id": id,
-        "userId": userId,
-        "productId": productId.toJson(),
-        "additives": List<dynamic>.from(additives.map((x) => x)),
+        "user": user.toJson(),
+        "items": List<dynamic>.from(items.map((x) => x.toJson())),
         "totalPrice": totalPrice,
-        "quantity": quantity,
+        "createdAt": createdAt?.toIso8601String(),
+        "updatedAt": updatedAt?.toIso8601String(),
       };
 }
 
-class ProductId {
+/// 🧺 عنصر داخل السلة
+class CartItem {
+  final String id;
+  final Product product;
+  final List<String> additives;
+  final int quantity;
+  final double totalPrice;
+
+  CartItem({
+    required this.id,
+    required this.product,
+    required this.additives,
+    required this.quantity,
+    required this.totalPrice,
+  });
+
+  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
+        id: json["_id"] ?? '',
+        product: json["product"] != null
+            ? Product.fromJson(json["product"])
+            : Product.empty(),
+        additives: json["additives"] != null
+            ? List<String>.from(json["additives"].map((x) => x.toString()))
+            : [],
+        quantity: json["quantity"] ?? 1,
+        totalPrice: (json["totalPrice"] ?? 0).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        "_id": id,
+        "product": product.toJson(),
+        "additives": additives,
+        "quantity": quantity,
+        "totalPrice": totalPrice,
+      };
+}
+
+/// 👤 المستخدم المرتبط بالسلة
+class UserId {
+  final String id;
+  final String phone;
+  final bool phoneVerification;
+  final String userType;
+
+  UserId({
+    required this.id,
+    required this.phone,
+    required this.phoneVerification,
+    required this.userType,
+  });
+
+  factory UserId.fromJson(Map<String, dynamic> json) => UserId(
+        id: json["_id"] ?? '',
+        phone: json["phone"] ?? '',
+        phoneVerification: json["phoneVerification"] ?? false,
+        userType: json["userType"] ?? 'Client',
+      );
+
+  Map<String, dynamic> toJson() => {
+        "_id": id,
+        "phone": phone,
+        "phoneVerification": phoneVerification,
+        "userType": userType,
+      };
+
+  factory UserId.empty() => UserId(
+        id: '',
+        phone: '',
+        phoneVerification: false,
+        userType: 'Client',
+      );
+}
+
+/// 🍔 المنتج داخل السلة
+class Product {
   final String id;
   final String title;
   final List<String> imageUrl;
-  final Restaurant restaurant;
+  final double price;
   final double rating;
   final String ratingCount;
+  final Restaurant restaurant;
 
-  ProductId({
+  Product({
     required this.id,
     required this.title,
     required this.imageUrl,
-    required this.restaurant,
+    required this.price,
     required this.rating,
     required this.ratingCount,
+    required this.restaurant,
   });
 
-  factory ProductId.fromJson(Map<String, dynamic> json) => ProductId(
+  factory Product.fromJson(Map<String, dynamic> json) => Product(
         id: json["_id"] ?? '',
         title: json["title"] ?? '',
         imageUrl: json["imageUrl"] != null
             ? List<String>.from(json["imageUrl"].map((x) => x.toString()))
             : [],
+        price: (json["price"] ?? 0).toDouble(),
+        rating: (json["rating"] ?? 0).toDouble(),
+        ratingCount: json["ratingCount"]?.toString() ?? '0',
         restaurant: json["restaurant"] != null
             ? Restaurant.fromJson(json["restaurant"])
             : Restaurant.empty(),
-        rating: json["rating"] != null ? (json["rating"] as num).toDouble() : 0.0,
-        ratingCount: json["ratingCount"]?.toString() ?? '0',
       );
 
   Map<String, dynamic> toJson() => {
         "_id": id,
         "title": title,
-        "imageUrl": List<dynamic>.from(imageUrl.map((x) => x)),
-        "restaurant": restaurant.toJson(),
+        "imageUrl": imageUrl,
+        "price": price,
         "rating": rating,
         "ratingCount": ratingCount,
+        "restaurant": restaurant.toJson(),
       };
 
-  factory ProductId.empty() => ProductId(
+  factory Product.empty() => Product(
         id: '',
         title: '',
         imageUrl: [],
-        restaurant: Restaurant.empty(),
+        price: 0.0,
         rating: 0.0,
         ratingCount: '0',
+        restaurant: Restaurant.empty(),
       );
 }
 
+/// 🍽️ المطعم المرتبط بالمنتج
 class Restaurant {
-  final Coords coords;
   final String id;
+  final String name;
+  final Coords coords;
   final String time;
 
   Restaurant({
-    required this.coords,
     required this.id,
+    required this.name,
+    required this.coords,
     required this.time,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) => Restaurant(
-        coords: json["coords"] != null ? Coords.fromJson(json["coords"]) : Coords.empty(),
         id: json["_id"] ?? '',
+        name: json["name"] ?? '',
+        coords: json["coords"] != null
+            ? Coords.fromJson(json["coords"])
+            : Coords.empty(),
         time: json["time"] ?? '',
       );
 
   Map<String, dynamic> toJson() => {
-        "coords": coords.toJson(),
         "_id": id,
+        "name": name,
+        "coords": coords.toJson(),
         "time": time,
       };
 
-  factory Restaurant.empty() => Restaurant(coords: Coords.empty(), id: '', time: '');
+  factory Restaurant.empty() => Restaurant(
+        id: '',
+        name: '',
+        coords: Coords.empty(),
+        time: '',
+      );
 }
 
+/// 📍 إحداثيات المطعم
 class Coords {
   final String id;
   final double latitude;
   final double longitude;
-  final double latitudeDelta;
-  final double longitudeDelta;
   final String address;
   final String title;
 
@@ -136,20 +257,14 @@ class Coords {
     required this.id,
     required this.latitude,
     required this.longitude,
-    required this.latitudeDelta,
-    required this.longitudeDelta,
     required this.address,
     required this.title,
   });
 
   factory Coords.fromJson(Map<String, dynamic> json) => Coords(
         id: json["id"] ?? '',
-        latitude: json["latitude"] != null ? (json["latitude"] as num).toDouble() : 0.0,
-        longitude: json["longitude"] != null ? (json["longitude"] as num).toDouble() : 0.0,
-        latitudeDelta:
-            json["latitudeDelta"] != null ? (json["latitudeDelta"] as num).toDouble() : 0.0,
-        longitudeDelta:
-            json["longitudeDelta"] != null ? (json["longitudeDelta"] as num).toDouble() : 0.0,
+        latitude: (json["latitude"] ?? 0).toDouble(),
+        longitude: (json["longitude"] ?? 0).toDouble(),
         address: json["address"] ?? '',
         title: json["title"] ?? '',
       );
@@ -158,8 +273,6 @@ class Coords {
         "id": id,
         "latitude": latitude,
         "longitude": longitude,
-        "latitudeDelta": latitudeDelta,
-        "longitudeDelta": longitudeDelta,
         "address": address,
         "title": title,
       };
@@ -168,8 +281,6 @@ class Coords {
         id: '',
         latitude: 0.0,
         longitude: 0.0,
-        latitudeDelta: 0.0,
-        longitudeDelta: 0.0,
         address: '',
         title: '',
       );

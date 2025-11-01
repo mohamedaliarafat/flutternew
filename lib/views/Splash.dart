@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:foodly/views/auth/OtpVerificationScreen.dart';
 import 'package:foodly/views/entrypoint.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -21,7 +22,7 @@ class EntryPoint extends StatelessWidget {
         Get.offAll(() => MainScreen());
       } else if (token != null && !isVerified) {
         // مسجّل دخول لكن لم يتم التحقق -> صفحة التحقق
-        Get.offAll(() => VerificationPage());
+        Get.offAll(() => OtpVerificationScreen(phoneNumber: '',));
       } else {
         // لم يتم تسجيل الدخول -> MainScreen أو صفحة Login حسب التطبيق
         Get.offAll(() => MainScreen());

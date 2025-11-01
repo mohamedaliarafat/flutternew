@@ -9,6 +9,7 @@ import 'package:foodly/constants/constants.dart';
 import 'package:foodly/controllers/cart_controller.dart';
 import 'package:foodly/controllers/login_phone_controller.dart';
 import 'package:foodly/models/cart_response.dart';
+import 'package:foodly/models/login_response.dart';
 import 'package:foodly/views/auth/login_redirect.dart';
 import 'package:foodly/views/cart/widget/cart_tile.dart';
 import 'package:foodly/views/payment/payment_screen.dart';
@@ -17,24 +18,28 @@ import 'package:get/get.dart';
 class CartPage extends HookWidget {
   const CartPage({super.key});
 
-  /// حساب الإجمالي الكلي وعدد المنتجات
-  Map<String, dynamic> calculateTotal(List<CartResponse> carts) {
+  /// 🧮 حساب المجموع الكلي وعدد المنتجات داخل السلة
+  Map<String, dynamic> calculateTotal(CartData? cart) {
+    if (cart == null || cart.items.isEmpty) {
+      return {'total': 0.0, 'count': 0, 'subTotal': 0.0, 'shipping': 0.0};
+    }
+
     double subTotal = 0.0;
     int itemCount = 0;
     const double shippingFee = 0.0;
 
-    for (var cart in carts) {
-      subTotal += cart.totalPrice;
-      itemCount += cart.quantity;
+    for (var item in cart.items) {
+      subTotal += item.totalPrice;
+      itemCount += item.quantity;
     }
 
-    double total = subTotal + (carts.isNotEmpty ? shippingFee : 0.0);
+    double total = subTotal + shippingFee;
 
     return {
       'total': total,
       'count': itemCount,
       'subTotal': subTotal,
-      'shipping': carts.isNotEmpty ? shippingFee : 0.0
+      'shipping': shippingFee
     };
   }
 
@@ -43,23 +48,25 @@ class CartPage extends HookWidget {
     final authController = Get.put(AuthController());
     final cartController = Get.put(CartController());
 
-    final user = authController.getUserInfo();
+    final User? user = authController.getUserInfo() as User?;
 
-    // التحقق من تسجيل الدخول والتحقق من الهاتف
-    if (user == null || !user.phoneVerification) return const LoginRedirect();
+    // ✅ تحقق من تسجيل الدخول والتحقق من رقم الجوال
+    if (user == null || user.phoneVerification == false) {
+      return const LoginRedirect();
+    }
 
-    // تحديث السلة تلقائيًا عند فتح الصفحة
+    // ✅ تحميل السلة عند فتح الصفحة
     useEffect(() {
       cartController.fetchCart();
       return null;
     }, []);
 
     return Obx(() {
-      final carts = cartController.cartItems;
       final isLoading = cartController.isLoading;
-      final isCartEmpty = carts.isEmpty && !isLoading;
+      final CartData? cart = cartController.cart.value?.data;
+      final isCartEmpty = cart == null || cart.items.isEmpty;
 
-      final totals = calculateTotal(carts);
+      final totals = calculateTotal(cart);
       final cartTotal = totals['total'] as double;
       final subTotal = totals['subTotal'] as double;
       final shippingFee = totals['shipping'] as double;
@@ -92,12 +99,14 @@ class CartPage extends HookWidget {
                               children: [
                                 Expanded(
                                   child: ListView.builder(
-                                    itemCount: carts.length,
+                                    itemCount: cart!.items.length,
                                     itemBuilder: (context, i) {
-                                      final cart = carts[i];
+                                      final item = cart.items[i];
                                       return Padding(
                                         padding: EdgeInsets.only(bottom: 8.h),
                                         child: CartTile(
+                                          cartItem: item,
+                                          refetch: cartController.fetchCart,
                                           cart: cart,
                                         ),
                                       );
@@ -114,7 +123,7 @@ class CartPage extends HookWidget {
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  child: _buildCheckoutBar(context, cartTotal, carts),
+                  child: _buildCheckoutBar(context, cartTotal, cart!),
                 ),
             ],
           ),
@@ -123,6 +132,7 @@ class CartPage extends HookWidget {
     });
   }
 
+  /// 🛒 شاشة السلة الفارغة
   Widget _buildEmptyCart() {
     return Center(
       child: Column(
@@ -152,6 +162,7 @@ class CartPage extends HookWidget {
     );
   }
 
+  /// 💰 ملخص الطلب
   Widget _buildOrderSummary(double subTotal, double shippingFee) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 10.h),
@@ -186,7 +197,7 @@ class CartPage extends HookWidget {
           tex: "",
         ),
         ReusableText(
-          text: "\SAR ${amount.toStringAsFixed(2)}",
+          text: "SAR ${amount.toStringAsFixed(2)}",
           style: appStyle(isTotal ? 18 : 14, color ?? kDark, isTotal ? FontWeight.bold : FontWeight.w600),
           tex: "",
         ),
@@ -194,15 +205,14 @@ class CartPage extends HookWidget {
     );
   }
 
-  Widget _buildCheckoutBar(BuildContext context, double total, List<CartResponse> carts) {
+  /// ✅ شريط الدفع السفلي
+  Widget _buildCheckoutBar(BuildContext context, double total, CartData cart) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 15.h),
       decoration: BoxDecoration(
         color: kBlueDark,
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
-        boxShadow: [
-          BoxShadow(color: kGray.withOpacity(0.4), spreadRadius: 3, blurRadius: 15, offset: const Offset(0, -5))
-        ],
+        boxShadow: [BoxShadow(color: kGray.withOpacity(0.4), spreadRadius: 3, blurRadius: 15, offset: const Offset(0, -5))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -211,19 +221,19 @@ class CartPage extends HookWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ReusableText(text: "المبلغ المطلوب:", style: appStyle(14, kOffWhite, FontWeight.w500), tex: ""),
-              ReusableText(text: "\SAR ${total.toStringAsFixed(2)}", style: appStyle(22, kPrimary, FontWeight.bold), tex: ""),
+              ReusableText(text: "SAR ${total.toStringAsFixed(2)}", style: appStyle(22, kPrimary, FontWeight.bold), tex: ""),
             ],
           ),
           SizedBox(
             height: 50.h,
             child: ElevatedButton.icon(
               onPressed: () {
-                if (carts.isEmpty) return;
+                if (cart.items.isEmpty) return;
                 Get.to(() => PaymentScreen(
                       orderId: "ORD-${DateTime.now().millisecondsSinceEpoch}",
                       totalAmount: total,
                       currency: "ر.س",
-                      restaurantName: carts.first.productId.restaurant.id,
+                      restaurantName: cart.items.first.product.restaurant.id,
                     ));
               },
               icon: Icon(Icons.arrow_forward_ios, size: 20.r, color: kDark),
