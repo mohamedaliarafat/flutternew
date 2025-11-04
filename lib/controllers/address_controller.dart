@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:foodly/constants/constants.dart';
 
 class AddressController extends GetxController {
+  get address => null;
+
   Future<bool> addAddress(String data) async {
     final box = GetStorage();
     String? accessToken = box.read("token");

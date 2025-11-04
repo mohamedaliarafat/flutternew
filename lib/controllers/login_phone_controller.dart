@@ -1,174 +1,218 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:foodly/constants/constants.dart';
-import 'package:foodly/controllers/cart_controller.dart';
+import 'package:foodly/controllers/notificationsController.dart' hide appBaseUrl;
 import 'package:foodly/models/api_error.dart';
-import 'package:foodly/models/login_response.dart';
 import 'package:foodly/views/entrypoint.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
 
+/// 🟦 AuthController مسؤول عن تسجيل الدخول بالهاتف + OTP وتخزين المستخدم في MongoDB
 class AuthController extends GetxController {
-  final box = GetStorage();
-  final RxBool _isLoading = false.obs;
+  final _isLoading = false.obs;
 
   bool get isLoading => _isLoading.value;
   set setLoading(bool value) => _isLoading.value = value;
 
+  String? _userId;
+  String? _phone;
+  String? _token;
+  String? _userType;
+  String? _profile;
+  bool _profileCompleted = false;
+
+  /// 🔹 التحقق إن المستخدم مسجل دخول
+  bool get isLoggedIn =>
+      _userId != null && _userId!.isNotEmpty && _phone != null && _phone!.isNotEmpty;
+
+  /// 🔹 معرفة إذا أنهى المستخدم ملفه الشخصي
+  bool get isProfileCompleted => _profileCompleted;
+
+  /// 🔹 تحديث حالة اكتمال الملف الشخصي
+  void setProfileCompleted(bool value) {
+    _profileCompleted = value;
+  }
+
+  /// 🔹 الحصول على صلاحيات المستخدم (headers)
+  Map<String, String>? getUserAuthHeaders() {
+    if (_token == null || _token!.isEmpty || _userId == null || _userId!.isEmpty) return null;
+    return {
+      "Authorization": "Bearer $_token",
+      "UserId": _userId!,
+    };
+  }
+
   /// 🔹 إرسال OTP
   Future<void> requestOtp(String phone) async {
     setLoading = true;
-    final Uri url = Uri.parse('$appBaseUrl/api/auth/request-otp');
 
     try {
       final response = await http.post(
-        url,
+        Uri.parse('$appBaseUrl/api/auth/request-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone}),
       );
 
-      debugPrint('📩 [requestOtp] Response: ${response.body}');
       setLoading = false;
+      debugPrint("📩 [requestOtp] ${response.body}");
 
-      if (response.headers['content-type']?.contains('application/json') ?? false) {
-        final data = jsonDecode(response.body);
-        if (response.statusCode == 200 && data['success'] == true) {
-          Get.snackbar(
-            "تم الإرسال ✅",
-            data['message'] ?? "تم إرسال رمز التحقق إلى رقمك",
-            icon: Image.network(
-              'https://d.top4top.io/p_3588wn4ke1.png',
-              width: 30,
-              height: 30,
-            ),
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: kBlueDark,
-            colorText: Colors.white,
-          );
-        } else {
-          final error = ApiError.fromJson(data);
-          Get.snackbar("خطأ", error.message,
-              colorText: Colors.white, backgroundColor: kRed);
-        }
+      if (!_isJson(response)) {
+        _showError("الاستجابة غير متوقعة من السيرفر");
+        return;
+      }
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        _showSuccess("تم إرسال رمز التحقق", data['message']);
       } else {
-        Get.snackbar("خطأ في السيرفر", "الاستجابة غير متوقعة",
-            colorText: Colors.white, backgroundColor: kRed);
+        final error = ApiError.fromJson(data);
+        _showError(error.message);
       }
     } catch (e) {
       setLoading = false;
       debugPrint('❌ [requestOtp] Error: $e');
-      Get.snackbar("خطأ في الاتصال", e.toString(),
-          colorText: Colors.white, backgroundColor: kRed);
+      _showError("حدث خطأ أثناء الإرسال، حاول مرة أخرى");
     }
   }
 
   /// 🔹 تحقق OTP وتسجيل الدخول
   Future<void> verifyOtpAndLogin(String phone, String otp) async {
     setLoading = true;
-    final Uri url = Uri.parse('$appBaseUrl/api/auth/verify-otp');
 
     try {
       final response = await http.post(
-        url,
+        Uri.parse('$appBaseUrl/api/auth/verify-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone, 'otp': otp}),
       );
 
-      debugPrint('📩 [verifyOtpAndLogin] Response: ${response.body}');
       setLoading = false;
+      debugPrint('📩 [verifyOtpAndLogin] ${response.body}');
 
-      if (response.headers['content-type']?.contains('application/json') ?? false) {
-        final Map<String, dynamic> resBody = jsonDecode(response.body);
+      if (!_isJson(response)) {
+        _showError("الاستجابة غير متوقعة من السيرفر");
+        return;
+      }
 
-        if (response.statusCode == 200 && resBody['success'] == true) {
-          final data = resBody['data'];
-          final token = resBody['token'];
+      final resBody = jsonDecode(response.body);
+      if (response.statusCode == 200 && resBody['success'] == true) {
+        final data = resBody['data'];
+        final token = resBody['token'];
 
-          // حفظ بيانات المستخدم + التوكن
-          await _saveUserData(data, token);
+        // حفظ بيانات المستخدم في MongoDB
+        await _saveUserToServer(
+          data['_id'], data['phone'], token, data['userType'], data['profile']
+        );
 
-          // جلب السلة
-          final cartController = Get.put(CartController());
-          cartController.setLoading = true;
-          await cartController.fetchCart();
+        // تحديث المتغيرات المحلية
+        _userId = data['_id'];
+        _phone = data['phone'];
+        _token = token;
+        _userType = data['userType'] ?? "Client";
+        _profile = data['profile'] ?? "";
+        _profileCompleted = data['profileCompleted'] ?? false;
 
-          Get.snackbar(
-            "تم تسجيل الدخول ✅",
-            "مرحباً ${data['phone']}",
-            icon: Image.network(
-              'https://d.top4top.io/p_3588wn4ke1.png',
-              width: 30,
-              height: 30,
-            ),
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: kBlueDark,
-            colorText: Colors.white,
-            margin: const EdgeInsets.all(16),
-            borderRadius: 12,
-            duration: const Duration(seconds: 3),
-          );
+        // 🔔 جلب إشعارات المستخدم مرتبطه بالـ userId
+        final notificationController = Get.put(NotificationController());
+        await notificationController.fetchNotifications(_userId!, _token!);
 
-          Future.delayed(const Duration(seconds: 1), () {
-            Get.offAll(() => MainScreen(),
-                transition: Transition.fade,
-                duration: const Duration(milliseconds: 900));
-          });
-        } else {
-          final error = ApiError.fromJson(resBody);
-          Get.snackbar("فشل العملية ❌", error.message,
-              colorText: Colors.white, backgroundColor: kRed);
-        }
+        _showSuccess("تم تسجيل الدخول ✅", "مرحباً ${data['phone']}");
+
+        // 🚀 الانتقال إلى الصفحة الرئيسية
+        Future.delayed(const Duration(seconds: 1), () {
+          Get.offAll(() => MainScreen(),
+              transition: Transition.fade,
+              duration: const Duration(milliseconds: 900));
+        });
       } else {
-        Get.snackbar("خطأ", "الاستجابة غير متوقعة من السيرفر",
-            colorText: Colors.white, backgroundColor: kRed);
+        final error = ApiError.fromJson(resBody);
+        _showError(error.message);
       }
     } catch (e) {
       setLoading = false;
       debugPrint('❌ [verifyOtpAndLogin] Exception: $e');
-      Get.snackbar("خطأ غير متوقع", e.toString(),
-          backgroundColor: kRed, colorText: Colors.white);
+      _showError("حدث خطأ غير متوقع أثناء تسجيل الدخول");
     }
   }
 
-  /// 🔹 حفظ بيانات المستخدم + التوكن
-  Future<void> _saveUserData(Map<String, dynamic> userData, String token) async {
-    await box.write("token", token);
-    await box.write("userId", userData['_id']);
-    await box.write("phone", userData['phone']);
-    await box.write("verification", userData['phoneVerification']);
-    await box.write("profile", userData['profile'] ?? "");
-    await box.write("userType", userData['userType'] ?? "Client");
-    await box.write("createdAt", userData['createdAt']);
-    await box.write("updatedAt", userData['updatedAt']);
-  }
-
-  /// 🔹 جلب بيانات المستخدم من التخزين المحلي
-  Map<String, dynamic>? getUserInfo() {
+  /// 🔹 حفظ بيانات المستخدم في MongoDB
+  Future<void> _saveUserToServer(
+      String userId, String phone, String token, String? userType, String? profile) async {
     try {
-      final phone = box.read("phone");
-      if (phone == null) return null;
+      final response = await http.post(
+        Uri.parse('$appBaseUrl/api/users/save'),
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+        body: jsonEncode({
+          "userId": userId,
+          "phone": phone,
+          "phoneVerification": true,
+          "userType": userType ?? "Client",
+          "profile": profile ?? "",
+        }),
+      );
 
-      return {
-        "id": box.read("userId") ?? "",
-        "phone": phone,
-        "phoneVerification": box.read("verification") ?? false,
-        "userType": box.read("userType") ?? "Client",
-        "profile": box.read("profile") ?? "",
-        "createdAt": box.read("createdAt"),
-        "updatedAt": box.read("updatedAt"),
-      };
+      if (response.statusCode == 200) {
+        debugPrint("✅ [MongoDB] بيانات المستخدم مخزنة بنجاح");
+      } else {
+        debugPrint("❌ [MongoDB] فشل في حفظ بيانات المستخدم: ${response.body}");
+      }
     } catch (e) {
-      debugPrint('❌ فشل في تحميل بيانات المستخدم: $e');
-      return null;
+      debugPrint("❌ [MongoDB] Exception أثناء حفظ المستخدم: $e");
     }
+  }
+
+  /// 🔹 جلب بيانات المستخدم
+  Map<String, dynamic>? getUserInfo() {
+    if (_userId == null || _userId!.isEmpty || _phone == null || _phone!.isEmpty) return null;
+
+    return {
+      "id": _userId,
+      "phone": _phone,
+      "phoneVerification": true,
+      "userType": _userType ?? "Client",
+      "profile": _profile ?? "",
+      "profileCompleted": _profileCompleted,
+    };
   }
 
   /// 🔹 تسجيل الخروج
   void logout() {
-    box.erase();
+    _userId = null;
+    _phone = null;
+    _token = null;
+    _userType = null;
+    _profile = null;
+    _profileCompleted = false;
+
     Get.offAll(() => MainScreen(),
         transition: Transition.fade,
         duration: const Duration(milliseconds: 900));
+  }
+
+  // 🧩 أدوات مساعدة
+  bool _isJson(http.Response res) =>
+      res.headers['content-type']?.contains('application/json') ?? false;
+
+  void _showError(String message) {
+    Get.snackbar("خطأ", message,
+        colorText: Colors.white, backgroundColor: kRed);
+  }
+
+  void _showSuccess(String title, String? message) {
+    Get.snackbar(
+      title,
+      message ?? "",
+      icon: Image.network(
+        'https://d.top4top.io/p_3588wn4ke1.png',
+        width: 30,
+        height: 30,
+      ),
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: kBlueDark,
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 12,
+      duration: const Duration(seconds: 3),
+    );
   }
 }

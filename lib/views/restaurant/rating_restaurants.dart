@@ -19,6 +19,9 @@ class RatingPage extends StatefulWidget {
   State<RatingPage> createState() => _RatingPageState();
 }
 
+class Restaurant {
+}
+
 class _RatingPageState extends State<RatingPage> {
   double _rating = 0.0; // التقييم الافتراضي
   final TextEditingController _reviewController = TextEditingController();

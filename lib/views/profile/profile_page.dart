@@ -1,11 +1,10 @@
-import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:foodly/common/custom_button.dart';
 import 'package:foodly/common/logo_transition.dart';
 import 'package:foodly/constants/constants.dart';
+import 'package:foodly/constants/uidata.dart';
 import 'package:foodly/controllers/login_phone_controller.dart';
 import 'package:foodly/models/login_response.dart';
 import 'package:foodly/views/auth/OtpVerificationScreen.dart';
@@ -20,13 +19,6 @@ import 'package:foodly/views/profile/widget/user_info_widget.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
-/// 🎨 ثيم متدرج بتأثير زجاجي
-const Color kGradientStart = Color(0xFF1A237E);
-const Color kGradientEnd = Color(0xFF42A5F5);
-const Color kGlassColor = Colors.white24;
-const Color kTileText = Colors.white;
-const Color kIconColor = Colors.white70;
-
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
@@ -35,17 +27,29 @@ class ProfilePage extends StatelessWidget {
     final authController = Get.put(AuthController());
     final box = GetStorage();
 
-    // ✅ تحقق من وجود التوكن
-    String? token = box.read('token');
-    if (token == null) {
-      return const LoginRedirect();
-    }
+    // التحقق من وجود التوكن
+    final token = box.read('token');
+    if (token == null) return const LoginRedirect();
 
-    // ✅ جلب بيانات المستخدم من AuthController
-    User? userData = authController.getUserInfo() as User?;
+    // جلب بيانات المستخدم
+    final userMap = authController.getUserInfo();
+    if (userMap == null) return const LoginRedirect();
 
-    // ✅ لو المستخدم لم يتحقق رقم جواله نرسله لصفحة التحقق
-    if (userData != null && userData.phoneVerification == false) {
+    final userData = User(
+      id: userMap['id'] ?? '',
+      phone: userMap['phone'] ?? '',
+      phoneVerification: userMap['verification'] ?? false,
+      userType: userMap['userType'] ?? 'Client',
+      profile: userMap['profile'] ?? '',
+      addresses: [],
+      defaultAddress: null,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),  
+      profileCompleted: userMap['profileCompleted'] ?? false, notifications: [],
+    );
+
+    // إذا رقم الهاتف غير موثق
+    if (!userData.phoneVerification) {
       return OtpVerificationScreen(phoneNumber: userData.phone);
     }
 
@@ -56,14 +60,13 @@ class ProfilePage extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [kGradientStart, kGradientEnd],
+            colors: [Color(0xFF1A237E), Color(0xFF42A5F5)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
         child: CustomScrollView(
           slivers: [
-            // 🔹 رأس الصفحة مع صورة المستخدم
             SliverAppBar(
               expandedHeight: 220.h,
               pinned: true,
@@ -79,100 +82,65 @@ class ProfilePage extends StatelessWidget {
                         child: Container(color: Colors.black26),
                       ),
                     ),
-                    if (userData != null)
-                      Align(
-                        alignment: Alignment.center,
-                        child: UserInfoWidget(user: userData),
-                      ),
+                    Align(
+                      alignment: Alignment.center,
+                      child: UserInfoWidget(user: userData),
+                    ),
                   ],
                 ),
               ),
             ),
-
-            // 🔹 محتوى الصفحة
             SliverList(
               delegate: SliverChildListDelegate([
                 SizedBox(height: 10.h),
-
-                // 🧭 القسم الرئيسي
-                _buildSectionTitle("إجراءات الحساب الرئيسية", AntDesign.dashboard),
+                _buildSectionTitle("إجراءات الحساب الرئيسية", Icons.dashboard),
                 _buildGlassmorphicList(context, tiles: [
                   _GlassProfileTile(
-                    onTap: () => Get.to(
-                      () => const OrdersList(),
-                      transition: Transition.rightToLeft,
-                      duration: const Duration(milliseconds: 400),
-                    ),
+                    onTap: () => Get.to(() => const OrdersList()),
                     title: "طلباتي",
-                    icon: FontAwesome.shopping_bag,
+                    icon: Icons.shopping_bag,
                   ),
                   _GlassProfileTile(
                     onTap: () {},
                     title: "المطاعم المفضلة",
-                    icon: Ionicons.heart_sharp,
+                    icon: Icons.favorite,
                   ),
                   _GlassProfileTile(
-                    onTap: () => Get.to(
-                      () => ReviewPage(),
-                      transition: Transition.rightToLeft,
-                      duration: const Duration(milliseconds: 400),
-                    ),
+                    onTap: () => Get.to(() => const ReviewPage()),
                     title: "مراجعاتي",
-                    icon: Ionicons.star_half_sharp,
+                    icon: Icons.star,
                   ),
                   _GlassProfileTile(
                     onTap: () {},
                     title: "كوبوناتي",
-                    icon: MaterialCommunityIcons.ticket_percent_outline,
+                    icon: Icons.confirmation_num,
                   ),
                 ]),
-
                 SizedBox(height: 10.h),
-
-                // ⚙️ المساعدة والإعدادات
-                _buildSectionTitle("المساعدة والإعدادات", Icons.settings_applications),
+                _buildSectionTitle("المساعدة والإعدادات", Icons.settings),
                 _buildGlassmorphicList(context, tiles: [
                   _GlassProfileTile(
-                    onTap: () => Get.to(
-                      () => LogoTransition(nextPage: const AddressesPage()),
-                      transition: Transition.rightToLeft,
-                      duration: const Duration(milliseconds: 400),
-                    ),
+                    onTap: () => Get.to(() => const AddressesPage()),
                     title: "عناوين الشحن",
-                    icon: SimpleLineIcons.location_pin,
+                    icon: Icons.location_pin,
                   ),
                   _GlassProfileTile(
-                    onTap: () => Get.to(
-                      () => LogoTransition(nextPage: const ServiceCenter()),
-                      transition: Transition.rightToLeft,
-                      duration: const Duration(milliseconds: 400),
-                    ),
+                    onTap: () => Get.to(() => const ServiceCenter()),
                     title: "مركز الخدمة والدعم",
-                    icon: AntDesign.customerservice,
+                    icon: Icons.support_agent,
                   ),
                   _GlassProfileTile(
-                    onTap: () => Get.to(
-                      () => LogoTransition(nextPage: const AppFeedback()),
-                      transition: Transition.rightToLeft,
-                      duration: const Duration(milliseconds: 400),
-                    ),
+                    onTap: () => Get.to(() => const AppFeedback()),
                     title: "ملاحظات وتغذية راجعة",
-                    icon: MaterialIcons.feedback,
+                    icon: Icons.feedback,
                   ),
                   _GlassProfileTile(
-                    onTap: () => Get.to(
-                      () => LogoTransition(nextPage: const SettingsPage()),
-                      transition: Transition.rightToLeft,
-                      duration: const Duration(milliseconds: 400),
-                    ),
+                    onTap: () => Get.to(() => const SettingsPage()),
                     title: "الإعدادات",
-                    icon: AntDesign.setting,
+                    icon: Icons.settings_applications,
                   ),
                 ]),
-
                 SizedBox(height: 20.h),
-
-                // 🚪 زر تسجيل الخروج
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
                   child: CustomButton(
@@ -180,7 +148,7 @@ class ProfilePage extends StatelessWidget {
                       authController.logout();
                       Get.offAll(() => const LoginRedirect());
                     },
-                    btnColor: kRed,
+                    btnColor: Colors.red,
                     text: "تسجيل الخروج",
                     radius: 12,
                     btnHeight: 45.h,
@@ -196,23 +164,19 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  /// 🧩 بناء عنوان القسم
   Widget _buildSectionTitle(String title, IconData icon) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
       child: Row(
         children: [
-          Icon(icon, color: kIconColor, size: 22.sp),
+          Icon(icon, color: Colors.white70, size: 22.sp),
           SizedBox(width: 8.w),
           Text(
             title,
             style: TextStyle(
-              color: kTileText,
+              color: Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 17.sp,
-              shadows: const [
-                Shadow(offset: Offset(0.5, 0.5), blurRadius: 1.0, color: Colors.black26),
-              ],
             ),
           ),
         ],
@@ -220,7 +184,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  /// 🧊 قائمة زجاجية أنيقة
   Widget _buildGlassmorphicList(BuildContext context, {required List<Widget> tiles}) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 15.w),
@@ -230,7 +193,7 @@ class ProfilePage extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
             decoration: BoxDecoration(
-              color: kGlassColor,
+              color: Colors.white24,
               borderRadius: BorderRadius.circular(20.r),
               border: Border.all(color: Colors.white10),
             ),
@@ -252,12 +215,8 @@ class ProfilePage extends StatelessWidget {
       ),
     );
   }
-  
 }
 
-// ----------------------------------------------------
-// * عنصر زجاجي لكل اختيار في الصفحة *
-// ----------------------------------------------------
 class _GlassProfileTile extends StatelessWidget {
   final VoidCallback onTap;
   final String title;
@@ -281,19 +240,19 @@ class _GlassProfileTile extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
           child: Row(
             children: [
-              Icon(icon, color: kIconColor, size: 22.sp),
+              Icon(icon, color: Colors.white70, size: 22.sp),
               SizedBox(width: 15.w),
               Expanded(
                 child: Text(
                   title,
                   style: TextStyle(
-                    color: kTileText,
+                    color: Colors.white,
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-              Icon(Ionicons.chevron_forward, color: kIconColor, size: 18.sp),
+              Icon(Icons.chevron_right, color: Colors.white70, size: 18.sp),
             ],
           ),
         ),

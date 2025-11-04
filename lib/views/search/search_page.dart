@@ -23,7 +23,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     final controller = Get.put(SearchFoodController());
      return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 14, 34, 65),
+      backgroundColor: Color(0xFF070B35),
       appBar: AppBar(
         toolbarHeight: 74.h,
         elevation: 0,

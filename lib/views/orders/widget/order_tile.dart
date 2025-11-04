@@ -19,7 +19,7 @@ class OrderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-        final controller = Get.put(CartController());
+        // final controller = Get.put(CartController());
 
     return Stack(
       clipBehavior: Clip.hardEdge,
@@ -142,15 +142,15 @@ class OrderTile extends StatelessWidget {
           top: 6.h,
           child: GestureDetector(
             onTap: () {
-              var data = CartRequest(
-                productId: food.id,
-                additives: [],
-                quantity: 1,
-                totalPrice: food.price, 
-              );
+              // var data = CartRequest(
+              //   productId: food.id,
+              //   additives: [],
+              //   quantity: 1,
+              //   totalPrice: food.price, 
+              // );
     
-              print("🟢 Adding to cart: ${data.toJson()}");
-              controller.addToCart(data);
+              // print("🟢 Adding to cart: ${data.toJson()}");
+              // controller.addToCart(data);
             },
             child: Container(
               width: 40.w,

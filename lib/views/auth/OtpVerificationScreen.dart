@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:foodly/constants/constants.dart';
 import 'package:foodly/controllers/login_phone_controller.dart';
+import 'package:foodly/views/entrypoint.dart';
+import 'package:foodly/views/profile/complete_profilePage.dart';
+import 'package:get/get.dart';
+import 'dart:async';
+
+const Color _kDarkBackground = Color(0xFF070B35);
+const Color _kDarkCardColor = Color(0xFF0F144D);
+const Color _kDarkInputFieldFill = Color(0xFF1A237E);
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -13,38 +21,95 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final TextEditingController _otpController = TextEditingController();
-  final AuthController _authController = AuthController();
+  final AuthController _authController = Get.put(AuthController());
 
   bool _isLoading = false;
   int _resendSeconds = 60;
+  Timer? _timer;
 
+  @override
+  void initState() {
+    super.initState();
+    _startResendTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  void _startResendTimer() {
+    _resendSeconds = 60;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_resendSeconds == 0) {
+        timer.cancel();
+        setState(() {});
+      } else {
+        setState(() {
+          _resendSeconds--;
+        });
+      }
+    });
+  }
+
+  /// 🔹 تحقق OTP عبر الكونترولر وتوجيه المستخدم
   void _verifyOtp() async {
-    String enteredOtp = _otpController.text.trim();
-    if (enteredOtp.length < 6) return;
+    final otp = _otpController.text.trim();
+    if (otp.length < 6) return;
 
     setState(() => _isLoading = true);
+    _timer?.cancel();
 
     try {
-      await _authController.verifyOtpAndLogin(widget.phoneNumber, enteredOtp);
+      await _authController.verifyOtpAndLogin(widget.phoneNumber, otp);
 
+      final userInfo = _authController.getUserInfo();
+      final bool isProfileComplete = userInfo?['profileCompleted'] ?? false;
+
+      if (!isProfileComplete) {
+        Get.offAll(() => const CompleteProfilePage());
+      } else {
+        Get.offAll(() => MainScreen());
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ: ${e.toString()}')),
+      Get.snackbar(
+        'خطأ ⚠️',
+        'الرمز غير صحيح أو حدث خطأ: ${e.toString()}',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
       );
+      _startResendTimer();
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
+  /// 🔹 إعادة إرسال OTP
   void _resendCode() async {
     if (_resendSeconds == 0) {
-      setState(() => _resendSeconds = 60);
       try {
         await _authController.requestOtp(widget.phoneNumber);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في إعادة الإرسال: ${e.toString()}')),
+        _startResendTimer();
+        Get.snackbar(
+          'نجاح ✅',
+          'تم إعادة إرسال رمز التحقق',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.green.withOpacity(0.8),
+          colorText: Colors.white,
         );
+      } catch (e) {
+        Get.snackbar(
+          'خطأ ❌',
+          'فشل إعادة الإرسال: ${e.toString()}',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red.withOpacity(0.8),
+          colorText: Colors.white,
+        );
+        setState(() => _resendSeconds = 0);
       }
     }
   }
@@ -52,61 +117,54 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: _kDarkBackground,
       body: Stack(
         children: [
-          // الخلفية الزرقاء
           Container(
-            height: MediaQuery.of(context).size.height * 0.4,
+            height: MediaQuery.of(context).size.height * 0.45,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [kBlueDark, Color.fromARGB(255, 51, 117, 216)],
+                colors: [_kDarkBackground, Color(0xFF3455D8)],
               ),
               borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
+                bottomLeft: Radius.circular(50),
+                bottomRight: Radius.circular(50),
               ),
             ),
           ),
           Center(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.only(top: 80),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // شعار التطبيق في منتصف المنطقة الزرقاء
+                  // شعار التطبيق
                   Container(
-                    margin: const EdgeInsets.only(top: 40),
-                    width: 120,
-                    height: 120,
+                    width: 130,
+                    height: 130,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(25),
+                      border: Border.all(color: kBlueDark, width: 1),
                     ),
                     child: Image.network(
-                      'https://d.top4top.io/p_3588wn4ke1.png',
+                      'https://www2.0zz0.com/2025/11/03/16/290260377.png',
                       fit: BoxFit.contain,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // كارد OTP
+                  const SizedBox(height: 40),
                   Card(
-                    elevation: 10,
+                    color: _kDarkCardColor.withOpacity(0.9),
+                    elevation: 20,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(25),
                     ),
                     margin: const EdgeInsets.symmetric(horizontal: 24),
                     child: Padding(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: const EdgeInsets.all(30.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -114,60 +172,67 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             'رمز التحقق',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: 30,
                               fontWeight: FontWeight.bold,
-                              color: kBlueDark,
+                              color: Colors.white,
                             ),
                           ),
                           const SizedBox(height: 15),
                           Text(
                             'أدخل الرمز المكون من 6 أرقام الذي تم إرساله إلى ${widget.phoneNumber}',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 15, color: Colors.grey),
+                            style: const TextStyle(fontSize: 15, color: Colors.white70, height: 1.5),
                           ),
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 40),
                           TextFormField(
                             controller: _otpController,
                             keyboardType: TextInputType.number,
                             maxLength: 6,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontSize: 24,
-                              letterSpacing: 15.0,
+                              fontSize: 28,
+                              letterSpacing: 12.0,
                               fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                             decoration: InputDecoration(
                               counterText: "",
                               hintText: '• • • • • •',
+                              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), letterSpacing: 12.0),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(15),
                                 borderSide: BorderSide.none,
                               ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: const BorderSide(color: Color(0xFF3455D8), width: 2),
+                              ),
                               filled: true,
-                              fillColor: Colors.grey[100],
+                              fillColor: _kDarkInputFieldFill.withOpacity(0.7),
                             ),
                           ),
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 40),
                           Container(
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [kBlueDark, Color.fromARGB(255, 51, 117, 216)],
+                                colors: [Color(0xFF3455D8), _kDarkBackground],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
                               ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(color: kBlueDark, blurRadius: 10, offset: const Offset(0, 5)),
-                              ],
+                              borderRadius: BorderRadius.circular(15),
                             ),
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _verifyOtp,
+                              onPressed: _isLoading || _otpController.text.length < 6 ? null : _verifyOtp,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
-                                padding: const EdgeInsets.symmetric(vertical: 15),
+                                padding: const EdgeInsets.symmetric(vertical: 20),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(15),
                                 ),
                               ),
                               child: _isLoading
@@ -186,21 +251,24 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                     ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 25),
                           TextButton(
                             onPressed: _resendSeconds == 0 ? _resendCode : null,
                             child: Text(
                               _resendSeconds == 0
                                   ? 'لم يصلك الرمز؟ إعادة إرسال الرمز'
-                                  : 'إعادة الإرسال بعد 0:$_resendSeconds',
-                              style: TextStyle(color: _resendSeconds == 0 ? kBlueDark : Colors.grey),
+                                  : 'إعادة الإرسال بعد 0:${_resendSeconds.toString().padLeft(2, '0')}',
+                              style: TextStyle(
+                                color: _resendSeconds == 0 ? Color(0xFF3455D8) : Colors.white54,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             child: const Text(
                               'تغيير رقم الجوال',
-                              style: TextStyle(color: Colors.blueGrey),
+                              style: TextStyle(color: Colors.white38),
                             ),
                           ),
                         ],

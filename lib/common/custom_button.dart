@@ -5,7 +5,7 @@ import 'package:foodly/common/reusable_text.dart';
 import 'package:foodly/constants/constants.dart';
 
 class CustomButton extends StatelessWidget {
-  const CustomButton({super.key, this.onTap, this.btnWidth, this.btnHeight, this.btnColor, this.radius, required this.text,});
+  const CustomButton({super.key, this.onTap, this.btnWidth, this.btnHeight, this.btnColor, this.radius, required this.text, });
 
   final void Function()? onTap;
   final double? btnWidth;
