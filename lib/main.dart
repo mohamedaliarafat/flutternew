@@ -54,6 +54,7 @@ import 'package:foodly/constants/constants.dart';
 import 'package:foodly/controllers/login_phone_controller.dart';
 import 'package:foodly/firebase_options.dart';
 import 'package:foodly/views/entrypoint.dart';
+import 'package:foodly/views/intro_page.dart';
 import 'package:get/get.dart';
 
 void main() async {
@@ -89,7 +90,7 @@ class MyApp extends StatelessWidget {
             primarySwatch: Colors.grey,
           ),
           // ✅ يمكن تغيير الصفحة الرئيسية حسب حالة المستخدم
-          home:  MainScreen(), // أو IntroPage() للانترو
+          home:  IntroPage(), // أو IntroPage() للانترو
         );
       },
     );
